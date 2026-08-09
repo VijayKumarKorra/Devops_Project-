@@ -1,0 +1,54 @@
+---
+- name: Install PostgreSQL
+  apt:
+    name:
+      - postgresql
+      - postgresql-contrib
+      - python3-psycopg2
+    state: present
+    update_cache: yes
+
+- name: Ensure PostgreSQL service is started and enabled
+  service:
+    name: postgresql
+    state: started
+    enabled: yes
+
+- name: Find pg_hba.conf path
+  shell: find /etc/postgresql -name pg_hba.conf | head -1
+  register: pg_hba_path
+  changed_when: false
+
+- name: Find postgresql.conf path
+  shell: find /etc/postgresql -name postgresql.conf | head -1
+  register: pg_conf_path
+  changed_when: false
+
+- name: Set postgres user password
+  shell: >
+    sudo -u postgres psql -c "ALTER USER postgres PASSWORD '{{ db_password }}';"
+  changed_when: true
+
+- name: Create application database
+  shell: >
+    sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='{{ db_name }}'" |
+    grep -q 1 || sudo -u postgres createdb -O postgres {{ db_name }}
+  changed_when: true
+
+- name: Allow md5 auth in pg_hba.conf
+  lineinfile:
+    path: "{{ pg_hba_path.stdout }}"
+    regexp: '^local\s+all\s+all\s+'
+    line: 'local   all             all                                     md5'
+    backrefs: yes
+
+- name: Configure PostgreSQL to listen on all interfaces
+  lineinfile:
+    path: "{{ pg_conf_path.stdout }}"
+    regexp: "^#?listen_addresses"
+    line: "listen_addresses = '*'"
+
+- name: Restart PostgreSQL to apply config changes
+  service:
+    name: postgresql
+    state: restarted

@@ -1,0 +1,15 @@
+---
+- name: Provision UserAPI VM
+  hosts: all
+  become: true
+  vars:
+    db_name: userapi_db
+    db_user: postgres
+    db_password: postgres
+    app_dir: /home/vagrant/userapi
+    app_port: 3000
+
+  roles:
+    - python
+    - postgresql
+    - app

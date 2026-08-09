@@ -1,0 +1,58 @@
+---
+- name: Install pip dependencies from requirements.txt
+  pip:
+    requirements: "{{ app_dir }}/requirements.txt"
+    executable: pip3
+
+- name: Create systemd service for UserAPI
+  copy:
+    dest: /etc/systemd/system/userapi.service
+    content: |
+      [Unit]
+      Description=UserAPI Flask Application
+      After=network.target postgresql.service
+      Requires=postgresql.service
+
+      [Service]
+      User=vagrant
+      WorkingDirectory=/home/vagrant
+      Environment="DB_HOST=localhost"
+      Environment="DB_PORT=5432"
+      Environment="DB_NAME={{ db_name }}"
+      Environment="DB_USER={{ db_user }}"
+      Environment="DB_PASSWORD={{ db_password }}"
+      Environment="PYTHONPATH=/home/vagrant"
+      ExecStart=/usr/bin/python3 -m gunicorn --bind 0.0.0.0:{{ app_port }} --workers 2 --preload userapi.src.app:app
+      Restart=always
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+
+- name: Start and enable UserAPI service
+  systemd:
+    name: userapi
+    state: restarted
+    enabled: yes
+
+- name: Wait for application to be ready
+  wait_for:
+    host: localhost
+    port: "{{ app_port }}"
+    delay: 5
+    timeout: 60
+
+- name: Health check — application is functional
+  uri:
+    url: "http://localhost:{{ app_port }}/health"
+    method: GET
+    status_code: 200
+  register: health_result
+
+- name: Show health check result
+  debug:
+    msg: "Health check passed: {{ health_result.json }}"

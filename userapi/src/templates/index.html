@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>UserAPI Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+      color: white;
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+    header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: 0.5px; }
+    header h1 span { color: #e94560; }
+
+    #health-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      background: rgba(255,255,255,0.1);
+      padding: 6px 14px;
+      border-radius: 20px;
+    }
+    #health-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: #aaa;
+      transition: background 0.4s;
+    }
+    #health-dot.ok { background: #2ecc71; box-shadow: 0 0 6px #2ecc71; }
+    #health-dot.fail { background: #e74c3c; box-shadow: 0 0 6px #e74c3c; }
+
+    /* ── MAIN ── */
+    main { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; }
+
+    /* ── STAT CARDS ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.2rem 1.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .card .label { font-size: 0.78rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+    .card .value { font-size: 2rem; font-weight: 700; color: #0f3460; }
+    .card .sub   { font-size: 0.8rem; color: #aaa; }
+
+    /* ── PANEL ── */
+    .panel {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+    .panel-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .panel-header h2 { font-size: 1rem; font-weight: 600; }
+
+    /* ── FORM ── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      padding: 1.5rem;
+    }
+    .form-grid .full { grid-column: 1 / -1; }
+
+    label { display: block; font-size: 0.8rem; color: #555; margin-bottom: 4px; font-weight: 500; }
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus { border-color: #0f3460; }
+
+    /* ── BUTTONS ── */
+    .btn {
+      padding: 10px 22px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:hover  { opacity: 0.88; }
+    .btn-primary   { background: #0f3460; color: white; }
+    .btn-danger    { background: #e94560; color: white; padding: 6px 14px; font-size: 0.8rem; }
+    .btn-secondary { background: #f0f2f5; color: #333; padding: 6px 14px; font-size: 0.8rem; }
+    .btn-success   { background: #2ecc71; color: white; }
+
+    /* ── TABLE ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th {
+      background: #f8f9fb;
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #888;
+      border-bottom: 2px solid #eee;
+    }
+    td { padding: 13px 16px; border-bottom: 1px solid #f5f5f5; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafbff; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: #e8f4fd;
+      color: #0f3460;
+    }
+
+    .actions { display: flex; gap: 6px; }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: #bbb;
+      font-size: 0.95rem;
+    }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed;
+      bottom: 2rem; right: 2rem;
+      background: #1a1a2e;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.3s, transform 0.3s;
+      z-index: 999;
+      max-width: 300px;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.error { background: #e94560; }
+    #toast.success { background: #2ecc71; color: #111; }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: white;
+      border-radius: 14px;
+      padding: 2rem;
+      width: 480px;
+      max-width: 95vw;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    .modal h3 { font-size: 1.1rem; margin-bottom: 1.2rem; }
+    .modal-form { display: flex; flex-direction: column; gap: 1rem; }
+    .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .modal-actions { display: flex; gap: 0.8rem; justify-content: flex-end; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>User<span>API</span> Dashboard</h1>
+  <div id="health-badge">
+    <div id="health-dot"></div>
+    <span id="health-text">Checking...</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- Stat cards -->
+  <div class="stats">
+    <div class="card">
+      <span class="label">Total Users</span>
+      <span class="value" id="stat-total">—</span>
+      <span class="sub">in database</span>
+    </div>
+    <div class="card">
+      <span class="label">Database</span>
+      <span class="value" id="stat-db" style="font-size:1.1rem;padding-top:6px">—</span>
+      <span class="sub">PostgreSQL</span>
+    </div>
+    <div class="card">
+      <span class="label">API Status</span>
+      <span class="value" id="stat-api" style="font-size:1.1rem;padding-top:6px">—</span>
+      <span class="sub">UserAPI v1.0</span>
+    </div>
+  </div>
+
+  <!-- Add user form -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Add New User</h2>
+    </div>
+    <form id="add-form" onsubmit="createUser(event)">
+      <div class="form-grid">
+        <div>
+          <label>Username *</label>
+          <input id="f-username" type="text" placeholder="e.g. jdoe" required />
+        </div>
+        <div>
+          <label>Email *</label>
+          <input id="f-email" type="email" placeholder="e.g. jdoe@example.com" required />
+        </div>
+        <div>
+          <label>First Name</label>
+          <input id="f-firstname" type="text" placeholder="John" />
+        </div>
+        <div>
+          <label>Last Name</label>
+          <input id="f-lastname" type="text" placeholder="Doe" />
+        </div>
+        <div class="full" style="display:flex;justify-content:flex-end">
+          <button type="submit" class="btn btn-primary">+ Add User</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Users table -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2>All Users</h2>
+      <button class="btn btn-secondary" onclick="loadUsers()">↻ Refresh</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Email</th>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="users-tbody">
+          <tr><td colspan="7" class="empty-state">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <h3>Edit User</h3>
+    <div class="modal-form">
+      <input type="hidden" id="edit-id" />
+      <div class="modal-row">
+        <div>
+          <label>Username</label>
+          <input id="edit-username" type="text" />
+        </div>
+        <div>
+          <label>Email</label>
+          <input id="edit-email" type="email" />
+        </div>
+      </div>
+      <div class="modal-row">
+        <div>
+          <label>First Name</label>
+          <input id="edit-firstname" type="text" />
+        </div>
+        <div>
+          <label>Last Name</label>
+          <input id="edit-lastname" type="text" />
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-success" onclick="saveEdit()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+  // ── TOAST ──────────────────────────────────────────────
+  function toast(msg, type = 'default') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show ' + type;
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.className = '', 3000);
+  }
+
+  // ── HEALTH CHECK ───────────────────────────────────────
+  async function checkHealth() {
+    try {
+      const r = await fetch('/health');
+      const d = await r.json();
+      const dot  = document.getElementById('health-dot');
+      const txt  = document.getElementById('health-text');
+      const sdb  = document.getElementById('stat-db');
+      const sapi = document.getElementById('stat-api');
+      if (d.status === 'ok') {
+        dot.className = 'ok';
+        txt.textContent = 'Healthy';
+        sdb.textContent  = '✓ Connected';
+        sapi.textContent = '✓ Running';
+      } else {
+        dot.className = 'fail';
+        txt.textContent = 'Degraded';
+        sdb.textContent  = '✗ Error';
+        sapi.textContent = '✗ Degraded';
+      }
+    } catch {
+      document.getElementById('health-dot').className = 'fail';
+      document.getElementById('health-text').textContent = 'Unreachable';
+    }
+  }
+
+  // ── LOAD USERS ─────────────────────────────────────────
+  async function loadUsers() {
+    const tbody = document.getElementById('users-tbody');
+    try {
+      const r = await fetch('/users');
+      const users = await r.json();
+      document.getElementById('stat-total').textContent = users.length;
+      if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No users yet. Add one above!</td></tr>';
+        return;
+      }
+      tbody.innerHTML = users.map(u => `
+        <tr>
+          <td><span class="badge">#${u.id}</span></td>
+          <td><strong>${esc(u.username)}</strong></td>
+          <td>${esc(u.email)}</td>
+          <td>${esc(u.firstname || '—')}</td>
+          <td>${esc(u.lastname  || '—')}</td>
+          <td>${formatDate(u.created_at)}</td>
+          <td>
+            <div class="actions">
+              <button class="btn btn-secondary" onclick='openEdit(${JSON.stringify(u)})'>Edit</button>
+              <button class="btn btn-danger"    onclick="deleteUser(${u.id}, '${esc(u.username)}')">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    } catch(e) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Failed to load users.</td></tr>';
+    }
+  }
+
+  // ── CREATE USER ────────────────────────────────────────
+  async function createUser(e) {
+    e.preventDefault();
+    const body = {
+      username:  document.getElementById('f-username').value.trim(),
+      email:     document.getElementById('f-email').value.trim(),
+      firstname: document.getElementById('f-firstname').value.trim(),
+      lastname:  document.getElementById('f-lastname').value.trim(),
+    };
+    try {
+      const r = await fetch('/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (r.ok) {
+        toast('User created successfully!', 'success');
+        document.getElementById('add-form').reset();
+        loadUsers();
+      } else {
+        toast(d.error || (d.errors && d.errors.join(', ')) || 'Error creating user', 'error');
+      }
+    } catch { toast('Network error', 'error'); }
+  }
+
+  // ── DELETE USER ────────────────────────────────────────
+  async function deleteUser(id, username) {
+    if (!confirm(`Delete user "${username}"?`)) return;
+    try {
+      const r = await fetch(`/users/${id}`, { method: 'DELETE' });
+      if (r.ok) { toast('User deleted', 'success'); loadUsers(); }
+      else       { toast('Failed to delete', 'error'); }
+    } catch { toast('Network error', 'error'); }
+  }
+
+  // ── EDIT MODAL ─────────────────────────────────────────
+  function openEdit(u) {
+    document.getElementById('edit-id').value        = u.id;
+    document.getElementById('edit-username').value  = u.username;
+    document.getElementById('edit-email').value     = u.email;
+    document.getElementById('edit-firstname').value = u.firstname || '';
+    document.getElementById('edit-lastname').value  = u.lastname  || '';
+    document.getElementById('edit-modal').classList.add('open');
+  }
+  function closeModal() {
+    document.getElementById('edit-modal').classList.remove('open');
+  }
+  document.getElementById('edit-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  async function saveEdit() {
+    const id   = document.getElementById('edit-id').value;
+    const body = {
+      username:  document.getElementById('edit-username').value.trim(),
+      email:     document.getElementById('edit-email').value.trim(),
+      firstname: document.getElementById('edit-firstname').value.trim(),
+      lastname:  document.getElementById('edit-lastname').value.trim(),
+    };
+    try {
+      const r = await fetch(`/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (r.ok) {
+        toast('User updated!', 'success');
+        closeModal();
+        loadUsers();
+      } else {
+        toast(d.error || 'Update failed', 'error');
+      }
+    } catch { toast('Network error', 'error'); }
+  }
+
+  // ── UTILS ──────────────────────────────────────────────
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function formatDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+  }
+
+  // ── INIT ───────────────────────────────────────────────
+  checkHealth();
+  loadUsers();
+  setInterval(checkHealth, 15000);
+</script>
+</body>
+</html>

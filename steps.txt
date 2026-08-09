@@ -1,0 +1,201 @@
+STEP 1 — Create the .env file
+
+Open File Explorer → go to E:\PROJECT2\userapi\ → create a new text file named .env (exactly, no .txt extension).
+
+Put this inside it:
+
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=userapi_db
+DB_USER=postgres
+DB_PASSWORD=postgres
+SECRET_KEY=my-super-secret-key
+
+▎ Note: When the app runs inside Docker Compose, DB_HOST=postgres (the service name). For local run, it's localhost. The .env is for local-only use.
+
+---
+STEP 2 — Start PostgreSQL + pgAdmin with Docker Compose
+
+This single command starts PostgreSQL and automatically creates userapi_db + starts pgAdmin:
+
+# Open a terminal in E:\PROJECT2
+cd E:\PROJECT2
+docker-compose up postgres pgadmin
+
+Wait until you see something like:
+userapi_postgres  | database system is ready to accept connections
+
+Open pgAdmin in your browser: http://localhost:5050
+
+---
+STEP 3 — Connect pgAdmin to the database
+
+In the browser at http://localhost:5050:
+
+1. Login: email = admin@admin.com, password = admin
+2. Right-click Servers → Register → Server
+3. Fill in:
+  - Name tab: UserAPI DB (any name)
+  - Connection tab:
+      - Host: postgres
+    - Port: 5432
+    - Database: userapi_db
+    - Username: postgres
+    - Password: postgres
+4. Click Save
+
+You'll see the userapi_db database in the left panel. Take a screenshot here.
+
+---
+STEP 4 — Start the full app with Docker Compose
+
+Open a second terminal in E:\PROJECT2 and run:
+
+docker-compose up --build
+
+This starts all 3 services: PostgreSQL + pgAdmin + the Flask app.
+
+Wait for:
+userapi_app  | [INFO] Starting gunicorn ...
+userapi_app  | Listening at: http://0.0.0.0:3000
+
+Now open these in your browser and take screenshots:
+
+- http://localhost:3000 → should show {"message": "UserAPI v1.0", "status": "running"}
+- http://localhost:3000/health → should show {"status": "ok", "database": "healthy"}
+
+---
+STEP 5 — Test the API manually (create a user)
+
+Open a third terminal and run these curl commands one by one:
+
+# Create a user
+curl -X POST http://localhost:3000/users \
+  -H "Content-Type: application/json" \
+  -d "{\"username\": \"alice\", \"email\": \"alice@example.com\", \"firstname\": \"Alice\", \"lastname\": \"Smith\"}"
+
+# Get all users
+curl http://localhost:3000/users
+
+# Get user by ID (replace 1 with the id returned above)
+curl http://localhost:3000/users/1
+
+# Update a user
+curl -X PUT http://localhost:3000/users/1 \
+  -H "Content-Type: application/json" \
+  -d "{\"firstname\": \"Alicia\"}"
+
+# Delete a user
+curl -X DELETE http://localhost:3000/users/1
+
+Now go back to pgAdmin → expand userapi_db → Schemas → public → Tables → right-click users → View/Edit Data → All Rows. Take a screenshot of the table.
+
+---
+STEP 6 — Run the tests (take a screenshot of this)
+
+Open a terminal in E:\PROJECT2\userapi:
+
+cd E:\PROJECT2\userapi
+python -m pytest test/ -v
+
+You'll see 50 passed. Take a screenshot of this output.
+
+---
+STEP 7 — Create GitHub repository and push
+
+1. Go to github.com → click + → New repository
+2. Name: devops-project | Private or Public → Create repository
+3. Copy the repo URL (looks like https://github.com/YOURNAME/devops-project.git)
+
+Now run in E:\PROJECT2:
+
+cd E:\PROJECT2
+git init
+git add .
+git commit -m "Initial commit: UserAPI DevOps project - Python/Flask/PostgreSQL"
+git remote add origin https://github.com/YOUR_USERNAME/devops-project.git
+git branch -M main
+git push -u origin main
+
+4. Go to your repo on GitHub → click Actions tab → watch the CI pipeline run
+5. Wait for green checkmark → take a screenshot
+
+---
+STEP 8 — Build and push Docker image to Docker Hub
+
+1. Go to hub.docker.com → Sign up / Login → create a free account
+2. Note your Docker Hub username
+
+# Login from terminal
+docker login
+
+# Build the image (from E:\PROJECT2\userapi)
+cd E:\PROJECT2\userapi
+docker build -t YOUR_DOCKERHUB_USERNAME/userapi:latest .
+
+# Push to Docker Hub
+docker push YOUR_DOCKERHUB_USERNAME/userapi:latest
+
+Now update the Kubernetes file with your username. Let me do that for you — just tell me your Docker Hub username and I'll update k8s/deployment.yaml automatically.
+
+---
+STEP 9 — Vagrant (IaC)
+
+Make sure VirtualBox is installed (download from virtualbox.org if not). Then:
+
+cd E:\PROJECT2\iac
+vagrant up
+
+This takes ~5-10 minutes. It will:
+- Boot an Ubuntu 22.04 VM
+- Install Python, PostgreSQL
+- Deploy and start your app
+- Run a health check automatically
+
+When done, take a screenshot of the terminal output.
+
+vagrant halt    # stop when done
+
+---
+STEP 10 — Kubernetes with Minikube
+
+Make sure Minikube is installed. Then:
+
+minikube start
+
+cd E:\PROJECT2
+kubectl apply -f k8s/persistent-volume.yaml --validate=false
+kubectl apply -f k8s/persistent-volume-claim.yaml --validate=false
+kubectl apply -f k8s/deployment.yaml --validate=false
+kubectl apply -f k8s/service.yaml --validate=false
+Check everything is running:
+kubectl get pods          # wait until STATUS = Running
+kubectl get services
+kubectl get pv,pvc
+
+Take a screenshot, then open the app:
+minikube service userapi-service --url
+
+Open that URL in browser. Take a screenshot.
+
+Cleanup:
+kubectl delete -f k8s/
+minikube stop
+
+---
+STEP 11 — Add screenshots to README and final push
+
+1. Create folder E:\PROJECT2\screenshots\
+2. Save all your screenshots there
+3. Update README.md — replace the placeholder screenshot lines with real ones like:
+![Tests Passing](screenshots/tests.png)
+![App Health](screenshots/app_health.png)
+![pgAdmin](screenshots/pgadmin.png)
+![CI Pipeline](screenshots/ci_green.png)
+![K8s Pods](screenshots/k8s_pods.png)
+4. Also update README.md Author section with your real name
+5. Push everything:
+cd E:\PROJECT2
+git add .
+git commit -m "Add screenshots and finalize documentation"
+git push
